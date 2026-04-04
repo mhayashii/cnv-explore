@@ -1,0 +1,3 @@
+/path/to/project/Run1/Sample1/
+/path/to/project/Run1/Sample2/
+/path/to/project/Run2/Sample3/
