@@ -7,15 +7,10 @@ Input:
     A text file containing one sample directory per line.
     Each directory must contain:
         <sample>.cnv.vcf.gz
-        <sample>.baf.seg
+        <sample>.baf.bedgraph.gz
 
 Usage:
     python batch_plot.py sample_dirs.txt output_dir/
-
-Example sample_dirs.txt:
-    /path/to/project/Run1/Sample1/
-    /path/to/project/Run1/Sample2/
-    /path/to/project/Run2/Sample3/
 """
 
 import os
@@ -29,24 +24,37 @@ from plot_cnv_baf import plot_cnv_baf
 def find_dragen_files(sample_dir):
     """
     Given a sample directory, return:
-        sample_name, cnv_vcf_path, baf_seg_path
+        sample_name, cnv_vcf_path, baf_bedgraph_path
 
-    Expected files:
-        <sample>.cnv.vcf.gz
-        <sample>.baf.seg
+    Accepted BAF files (priority order):
+        <sample>.tumor.baf.bedgraph.gz
+        <sample>.baf.bedgraph.gz
     """
+
     sample = os.path.basename(os.path.normpath(sample_dir))
 
     cnv_vcf = os.path.join(sample_dir, f"{sample}.cnv.vcf.gz")
-    baf_seg = os.path.join(sample_dir, f"{sample}.baf.seg")
+
+    # Priority 1: tumor-normal workflow
+    baf_tumor = os.path.join(sample_dir, f"{sample}.tumor.baf.bedgraph.gz")
+
+    # Priority 2: germline workflow
+    baf_plain = os.path.join(sample_dir, f"{sample}.baf.bedgraph.gz")
 
     if not os.path.exists(cnv_vcf):
         raise FileNotFoundError(f"Missing CNV VCF: {cnv_vcf}")
 
-    if not os.path.exists(baf_seg):
-        raise FileNotFoundError(f"Missing BAF SEG: {baf_seg}")
+    # Choose the best available BAF file
+    if os.path.exists(baf_tumor):
+        baf_bedgraph = baf_tumor
+    elif os.path.exists(baf_plain):
+        baf_bedgraph = baf_plain
+    else:
+        raise FileNotFoundError(
+            f"Missing BAF bedgraph: neither {baf_tumor} nor {baf_plain}"
+        )
 
-    return sample, cnv_vcf, baf_seg
+    return sample, cnv_vcf, baf_bedgraph
 
 
 # ---------------------------------------------------------
@@ -60,7 +68,6 @@ def main():
     list_file = sys.argv[1]
     outdir = sys.argv[2]
 
-    # Create output directory
     os.makedirs(outdir, exist_ok=True)
 
     # Read sample directories
@@ -72,7 +79,7 @@ def main():
     # Process each sample
     for sample_dir in sample_dirs:
         try:
-            sample, cnv_vcf, baf_seg = find_dragen_files(sample_dir)
+            sample, cnv_vcf, baf_bedgraph = find_dragen_files(sample_dir)
         except Exception as e:
             print(f"[WARN] Skipping {sample_dir}: {e}")
             continue
@@ -86,7 +93,7 @@ def main():
 
         print(f"[RUN] Plotting {sample}...")
         try:
-            plot_cnv_baf(sample, cnv_vcf, baf_seg, out_png)
+            plot_cnv_baf(sample, cnv_vcf, baf_bedgraph, out_png)
         except Exception as e:
             print(f"[ERROR] Failed for {sample}: {e}")
 
