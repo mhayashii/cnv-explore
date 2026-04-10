@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import warnings
+import pyBigWig
 
 warnings.filterwarnings("ignore", message="divide by zero encountered in log2")
 
@@ -73,7 +74,28 @@ def load_baf_bedgraph(path, downsample=10):
     df = pd.DataFrame(rows, columns=["chrom", "pos", "baf"])
     df["chr_num"] = df["chrom"].apply(chr_to_num)
     return df
+    
+# ---------------------------------------------------------
+# Load BAF BigWig (hard-filtered)
+# ---------------------------------------------------------
+def load_baf_bigwig(path, downsample=10):
+    bw = pyBigWig.open(path)
+    rows = []
 
+    for chrom in bw.chroms().keys():
+        intervals = bw.intervals(chrom)
+        if intervals is None:
+            continue
+
+        for i, (start, end, value) in enumerate(intervals):
+            if i % downsample != 0:
+                continue
+            rows.append((chrom, start, float(value)))
+
+    df = pd.DataFrame(rows, columns=["chrom", "pos", "baf"])
+    df["chr_num"] = df["chrom"].apply(chr_to_num)
+    return df
+    
 # ---------------------------------------------------------
 # Build genome-wide coordinates
 # ---------------------------------------------------------
@@ -94,11 +116,17 @@ def add_genome_coords(df, start_col="start", end_col="end"):
 # ---------------------------------------------------------
 # Main plotting function
 # ---------------------------------------------------------
-def plot_cnv_baf(sample, cnv_vcf_path, baf_bedgraph_path, out_png, downsample=10):
+def plot_cnv_baf(sample, cnv_vcf_path, baf_path, out_png, downsample=10):
 
     # Load data
     cnv = load_cnv_vcf(cnv_vcf_path)
-    baf = load_baf_bedgraph(baf_bedgraph_path, downsample=downsample)
+    # Load BAF depending on file type
+    if baf_path.endswith(".bedgraph.gz"):
+        baf = load_baf_bedgraph(baf_path, downsample=downsample)
+    elif baf_path.endswith(".hard-filtered.baf.bw"):
+        baf = load_baf_bigwig(baf_path, downsample=downsample)
+    else:
+        raise ValueError(f"Unsupported BAF file format: {baf_path}")
 
     # Build genome-wide coordinates
     cnv, offset, chrom_sizes = add_genome_coords(cnv)

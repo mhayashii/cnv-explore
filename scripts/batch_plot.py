@@ -24,11 +24,12 @@ from plot_cnv_baf import plot_cnv_baf
 def find_dragen_files(sample_dir):
     """
     Given a sample directory, return:
-        sample_name, cnv_vcf_path, baf_bedgraph_path
+        sample_name, cnv_vcf_path, baf_path
 
     Accepted BAF files (priority order):
         <sample>.tumor.baf.bedgraph.gz
         <sample>.baf.bedgraph.gz
+        <sample>.hard-filtered.baf.bw
     """
 
     sample = os.path.basename(os.path.normpath(sample_dir))
@@ -41,20 +42,27 @@ def find_dragen_files(sample_dir):
     # Priority 2: germline workflow
     baf_plain = os.path.join(sample_dir, f"{sample}.baf.bedgraph.gz")
 
+    # Priority 3: hard-filtered BigWig (fallback)
+    baf_hard_bw = os.path.join(sample_dir, f"{sample}.hard-filtered.baf.bw")
+    
     if not os.path.exists(cnv_vcf):
         raise FileNotFoundError(f"Missing CNV VCF: {cnv_vcf}")
 
     # Choose the best available BAF file
     if os.path.exists(baf_tumor):
-        baf_bedgraph = baf_tumor
+        baf_path = baf_tumor
     elif os.path.exists(baf_plain):
-        baf_bedgraph = baf_plain
+        baf_path = baf_plain
+    elif os.path.exists(baf_hard_bw):
+        baf_path = baf_hard_bw
     else:
         raise FileNotFoundError(
-            f"Missing BAF bedgraph: neither {baf_tumor} nor {baf_plain}"
+            f"Missing BAF file: expected one of {baf_tumor}, {baf_plain}, {baf_hard_bw}"
         )
 
-    return sample, cnv_vcf, baf_bedgraph
+    print(f"[INFO] Using BAF file: {baf_path}")
+
+    return sample, cnv_vcf, baf_path
 
 
 # ---------------------------------------------------------
@@ -79,7 +87,7 @@ def main():
     # Process each sample
     for sample_dir in sample_dirs:
         try:
-            sample, cnv_vcf, baf_bedgraph = find_dragen_files(sample_dir)
+            sample, cnv_vcf, baf_path = find_dragen_files(sample_dir)
         except Exception as e:
             print(f"[WARN] Skipping {sample_dir}: {e}")
             continue
@@ -93,7 +101,7 @@ def main():
 
         print(f"[RUN] Plotting {sample}...")
         try:
-            plot_cnv_baf(sample, cnv_vcf, baf_bedgraph, out_png)
+            plot_cnv_baf(sample, cnv_vcf, baf_path, out_png)
         except Exception as e:
             print(f"[ERROR] Failed for {sample}: {e}")
 
