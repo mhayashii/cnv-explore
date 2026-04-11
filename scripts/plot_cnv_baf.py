@@ -14,10 +14,16 @@ warnings.filterwarnings("ignore", message="divide by zero encountered in log2")
 # ---------------------------------------------------------
 def chr_to_num(chrom):
     c = str(chrom).replace("chr", "")
+
     if c == "X":
         return 23
     if c == "Y":
         return 24
+
+    # Skip non-numeric contigs (HLA, ALT, decoys, unplaced)
+    if not c.isdigit():
+        return None
+
     return int(c)
 
 # ---------------------------------------------------------
@@ -128,6 +134,10 @@ def plot_cnv_baf(sample, cnv_vcf_path, baf_path, out_png, downsample=10):
     else:
         raise ValueError(f"Unsupported BAF file format: {baf_path}")
 
+    # Filter out non-canonical chromosomes
+    cnv = cnv[cnv["chr_num"].notnull()]
+    baf = baf[baf["chr_num"].notnull()]
+    
     # Build genome-wide coordinates
     cnv, offset, chrom_sizes = add_genome_coords(cnv)
     baf, _, _ = add_genome_coords(baf, start_col="pos", end_col="pos")
@@ -186,9 +196,6 @@ def plot_cnv_baf(sample, cnv_vcf_path, baf_path, out_png, downsample=10):
     axes[1].tick_params(axis="x", length=0)
 
     # Bottom labels only
-    axes[0].set_xticks(chrom_positions)
-    axes[0].set_xticklabels(clean_labels, fontsize=8)
-
     axes[1].set_xticks(chrom_positions)
     axes[1].set_xticklabels(clean_labels, fontsize=8)
 
