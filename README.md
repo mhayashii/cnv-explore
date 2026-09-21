@@ -75,9 +75,8 @@ This generates:
 - output_plots/Sample3_CNV_BAF.png  
 
 ## 🖼 Example Output
-
-See:
-
+![Project Screenshot](examples/example_plots/Demo-5base-gDNA-Sample16-NA12878-50ng-C-B04_CNV_BAF.png)
+Full image:
 - examples/example_plots/
 
 ## 🧠 How It Works
